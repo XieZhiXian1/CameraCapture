@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+    <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/linearLayout">
+
+        <Button
+                android:text="前/后"
+                android:id="@+id/btn_change_camera"
+                android:onClick="changeCamera"
+                style="@style/btn_control_style"/>
+
+        <Button
+                android:text="capture"
+                android:id="@+id/btn_capture"
+                android:onClick="capturePhoto"
+                style="@style/btn_control_style"/>
+
+        <Button
+                android:text="record"
+                android:id="@+id/btn_record"
+                android:onClick="recordVideo"
+                style="@style/btn_control_style"/>
+
+        <Button
+                android:text="stop"
+                android:id="@+id/btn_stop"
+                android:onClick="stopRecord"
+                style="@style/btn_control_style"/>
+    </LinearLayout>
+
+    <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+        <TextureView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:id="@+id/textureView"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="16dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginBottom="8dp"/>
+
+        <TextView
+                android:id="@+id/record_seconds_tv"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0s"
+                android:layout_gravity="bottom|center_horizontal"
+                android:textColor="@android:color/white"
+                android:layout_marginBottom="20dp"
+                android:textSize="18sp"
+                android:visibility="gone"/>
+    </FrameLayout>
+
+</LinearLayout>
