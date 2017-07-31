@@ -1,8 +1,12 @@
 package com.ymlion.cameracapture;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.TextureView;
@@ -28,6 +32,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        Log.d("MAIN", "onResume: ");
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_DENIED) {
+                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA}, 0);
+            }
+        }
     }
 
     private void openCamera(int width, int height) {
@@ -43,7 +54,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
                 Log.d("MAIN", "onSurfaceTextureAvailable: " + width + "; " + height);
-                openCamera(width, height);
+                if (Build.VERSION.SDK_INT >= 23) {
+                    if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                        openCamera(width, height);
+                    }
+                } else {
+                    openCamera(width, height);
+                }
             }
 
             @Override
@@ -61,6 +78,20 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 0) {
+            for (int grantResult : grantResults) {
+                if (grantResult == PackageManager.PERMISSION_DENIED) {
+                    finish();
+                    return;
+                }
+            }
+            openCamera(textureView.getWidth(), textureView.getHeight());
+        }
     }
 
     @Override

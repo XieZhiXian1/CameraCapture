@@ -43,7 +43,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import static android.hardware.camera2.CameraMetadata.CONTROL_AE_MODE_ON_AUTO_FLASH;
+import static android.hardware.camera2.CameraMetadata.CONTROL_AE_MODE_ON_ALWAYS_FLASH;
+import static android.hardware.camera2.CameraMetadata.CONTROL_AE_PRECAPTURE_TRIGGER_START;
+import static android.hardware.camera2.CameraMetadata.CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+import static android.hardware.camera2.CameraMetadata.CONTROL_AF_TRIGGER_START;
+import static android.hardware.camera2.CameraMetadata.CONTROL_CAPTURE_INTENT_STILL_CAPTURE;
 import static android.hardware.camera2.CameraMetadata.CONTROL_MODE_AUTO;
 
 /**
@@ -76,13 +80,19 @@ public class CaptureManager {
     private int mSensorOrientation;
     private Size mPreviewSize;
     private static final int STATE_PREVIEW = 0;
-    private static final int STATE_CAPTURE = 1;
-    private static final int STATE_RECORDING = 2;
-    private static final int STATE_RECORDED = 3;
+    private static final int STATE_WAITING_LOCK = 1;
+    private static final int STATE_WAITING_CAPTURE = 2;
+    private static final int STATE_CAPTURE = 3;
+    private static final int STATE_CAPTURED = 4;
+    private static final int STATE_RECORDING = 5;
+    private static final int STATE_RECORDED = 6;
 
     /**
      * @see #STATE_PREVIEW
+     * @see #STATE_WAITING_LOCK
+     * @see #STATE_WAITING_CAPTURE
      * @see #STATE_CAPTURE
+     * @see #STATE_CAPTURED
      * @see #STATE_RECORDING
      * @see #STATE_RECORDED
      */
@@ -150,13 +160,38 @@ public class CaptureManager {
 
 
     public void capture() {
-        mState = STATE_CAPTURE;
+        lockFocus();
+    }
+
+    private void lockFocus() {
+        mRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CONTROL_AF_TRIGGER_START);
+        mState = STATE_WAITING_LOCK;
+        try {
+            mCaptureSession.capture(mRequestBuilder.build(), mCaptureCallback, mThreadHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void preCapture() {
+        mRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CONTROL_AE_PRECAPTURE_TRIGGER_START);
+        mState = STATE_WAITING_CAPTURE;
+        try {
+            mCaptureSession.capture(mRequestBuilder.build(), mCaptureCallback, mThreadHandler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void captureStill() {
+        mState = STATE_CAPTURED;
         try {
             CaptureRequest.Builder builder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
             builder.addTarget(mImageReader.getSurface());
             // Orientation
             int rotation = ((Activity) mContext).getWindowManager().getDefaultDisplay().getRotation();
             builder.set(CaptureRequest.JPEG_ORIENTATION, getOrientation(rotation));
+            setupRequest(builder);
 //            builder.set(CaptureRequest.JPEG_QUALITY, (byte) 95);
             mCaptureSession.stopRepeating();
             mCaptureSession.capture(builder.build(), mCaptureCallback, null);
@@ -315,23 +350,57 @@ public class CaptureManager {
         public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
             process(result);
         }
-    }
 
-    private void process(CaptureResult partialResult) {
-        switch (mState) {
-            case STATE_CAPTURE:
-                try {
-                    mState = STATE_PREVIEW;
-                    mCaptureSession.setRepeatingRequest(mRequestBuilder.build(),
-                            mCaptureCallback, mThreadHandler);
-                } catch (CameraAccessException e) {
-                    e.printStackTrace();
+        private void process(CaptureResult result) {
+            switch (mState) {
+                case STATE_WAITING_LOCK:
+                    Integer af = result.get(CaptureResult.CONTROL_AF_STATE);
+                    if (af == null) {
+                        mState = STATE_CAPTURED;
+                        captureStill();
+                    } else if (af == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
+                            af == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED) {
+                        Integer ae = result.get(CaptureResult.CONTROL_AE_STATE);
+                        if (ae == null || ae == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
+                            mState = STATE_CAPTURED;
+                            captureStill();
+                        } else {
+                            preCapture();
+                        }
+                    }
+                    break;
+                case STATE_WAITING_CAPTURE: {
+                    Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
+                    if (aeState == null ||
+                            aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE ||
+                            aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED) {
+                        mState = STATE_CAPTURE;
+                    }
+                    break;
                 }
-                break;
-            case STATE_RECORDING:
-                break;
+                case STATE_CAPTURE: {
+                    Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
+                    if (aeState == null || aeState != CaptureResult.CONTROL_AE_STATE_PRECAPTURE) {
+                        mState = STATE_CAPTURED;
+                        captureStill();
+                    }
+                    break;
+                }
+                case STATE_CAPTURED:
+                    try {
+                        mState = STATE_PREVIEW;
+                        mCaptureSession.setRepeatingRequest(mRequestBuilder.build(),
+                                mCaptureCallback, mThreadHandler);
+                    } catch (CameraAccessException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                case STATE_RECORDING:
+                    break;
+            }
         }
     }
+
 
     private class OnImageAvailable implements ImageReader.OnImageAvailableListener {
 
@@ -458,8 +527,11 @@ public class CaptureManager {
 
     private void setupRequest(CaptureRequest.Builder builder) {
         builder.set(CaptureRequest.CONTROL_MODE, CONTROL_MODE_AUTO);
-        if (mFlashSupported) {
-            builder.set(CaptureRequest.CONTROL_AE_MODE, CONTROL_AE_MODE_ON_AUTO_FLASH);
+        builder.set(CaptureRequest.CONTROL_AF_MODE, CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+        if (mFlashSupported && mState == STATE_CAPTURE) {
+            builder.set(CaptureRequest.CONTROL_CAPTURE_INTENT, CONTROL_CAPTURE_INTENT_STILL_CAPTURE);
+            builder.set(CaptureRequest.CONTROL_AE_MODE, CONTROL_AE_MODE_ON_ALWAYS_FLASH);
+//            builder.set(CaptureRequest.FLASH_MODE, FLASH_MODE_TORCH);
         }
 //        builder.set(CaptureRequest.CONTROL_AF_MODE, CONTROL_AF_MODE_AUTO);
     }
