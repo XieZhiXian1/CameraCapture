@@ -6,6 +6,10 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -61,12 +65,20 @@ public class CaptureManager {
      * Conversion from screen rotation to JPEG orientation.
      */
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
+    private static final SparseIntArray INVERSE_ORIENTATIONS = new SparseIntArray();
 
     static {
         ORIENTATIONS.append(Surface.ROTATION_0, 90);
-        ORIENTATIONS.append(Surface.ROTATION_90, 0);
+        ORIENTATIONS.append(Surface.ROTATION_90, 180);
         ORIENTATIONS.append(Surface.ROTATION_180, 270);
-        ORIENTATIONS.append(Surface.ROTATION_270, 180);
+        ORIENTATIONS.append(Surface.ROTATION_270, 0);
+    }
+
+    static {
+        INVERSE_ORIENTATIONS.append(Surface.ROTATION_0, 270);
+        INVERSE_ORIENTATIONS.append(Surface.ROTATION_90, 180);
+        INVERSE_ORIENTATIONS.append(Surface.ROTATION_180, 90);
+        INVERSE_ORIENTATIONS.append(Surface.ROTATION_270, 0);
     }
 
     /**
@@ -116,9 +128,14 @@ public class CaptureManager {
 
     private int mFacing = 1;
 
+    private SensorManager sm;
+    private SensorEventListener mSensorListener;
+    private int mOrientation = 0;
+
     public CaptureManager(Context context, SurfaceTexture surfaceTexture) {
         this.mContext = context;
         cm = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+        sm = (SensorManager) context.getSystemService(Context.SENSOR_SERVICE);
         this.mTexture = surfaceTexture;
         HandlerThread thread = new HandlerThread("CaptureManager");
         thread.start();
@@ -153,6 +170,8 @@ public class CaptureManager {
             setUpCameraOutputs(width, height);
 //            setupRecord();
             cm.openCamera(mCameraId, new DeviceStateCallback(), mThreadHandler);
+            Sensor gravitySensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            sm.registerListener(mSensorListener = new CameraSensorListener(), gravitySensor, SensorManager.SENSOR_DELAY_NORMAL);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -188,9 +207,9 @@ public class CaptureManager {
         try {
             CaptureRequest.Builder builder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
             builder.addTarget(mImageReader.getSurface());
-            // Orientation
-            int rotation = ((Activity) mContext).getWindowManager().getDefaultDisplay().getRotation();
-            builder.set(CaptureRequest.JPEG_ORIENTATION, getOrientation(rotation));
+            int orientation = getOrientation(mOrientation);
+            Log.d(TAG, "captureStill: picture rotation : " + mOrientation + "; orientation : " + orientation);
+            builder.set(CaptureRequest.JPEG_ORIENTATION, orientation);
             setupRequest(builder);
 //            builder.set(CaptureRequest.JPEG_QUALITY, (byte) 95);
             mCaptureSession.stopRepeating();
@@ -217,8 +236,8 @@ public class CaptureManager {
             mRecorder = new MediaRecorder();
             mRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
             mRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-            if (CamcorderProfile.hasProfile(CamcorderProfile.QUALITY_480P)) {
-                mRecorder.setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_480P));
+            if (CamcorderProfile.hasProfile(CamcorderProfile.QUALITY_QVGA)) {
+                mRecorder.setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_QVGA));
             } else {
                 mRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
                 mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
@@ -226,6 +245,11 @@ public class CaptureManager {
             }
             mCurrentVideo = getFile(1);
             mRecorder.setOutputFile(mCurrentVideo.getAbsolutePath());
+            if (mSensorOrientation == 90) {
+                mRecorder.setOrientationHint(ORIENTATIONS.get(mOrientation));
+            } else if (mSensorOrientation == 270) {
+                mRecorder.setOrientationHint(INVERSE_ORIENTATIONS.get(mOrientation));
+            }
             try {
                 mRecorder.prepare();
             } catch (IOException e) {
@@ -270,6 +294,7 @@ public class CaptureManager {
         if (mImageReader != null) {
             mImageReader.close();
         }
+        sm.unregisterListener(mSensorListener);
     }
 
 
@@ -417,7 +442,6 @@ public class CaptureManager {
                 outputStream = new BufferedOutputStream(new FileOutputStream(file));
                 outputStream.write(bytes);
                 outputStream.flush();
-                outputStream.close();
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
@@ -576,6 +600,7 @@ public class CaptureManager {
                 int displayRotation = ((Activity) (mContext)).getWindowManager().getDefaultDisplay().getRotation();
                 //noinspection ConstantConditions
                 mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+                Log.d(TAG, "device orientation : " + mSensorOrientation + "; display rotation : "  + displayRotation);
                 boolean swappedDimensions = false;
                 switch (displayRotation) {
                     case Surface.ROTATION_0:
@@ -627,6 +652,35 @@ public class CaptureManager {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private class CameraSensorListener implements SensorEventListener {
+
+        @Override
+        public void onSensorChanged(SensorEvent event) {
+//            Log.d(TAG, "onSensorChanged: " + event.values[0] + "; " + event.values[1] + "; " + event.values[2]);
+            float x = (int) event.values[0];
+            float y = (int) event.values[1];
+            if (Float.compare(x, 0) <= 0 && Float.compare(x + y, 0) < 0) {
+                if (Float.compare(x, y) > 0) {
+                    mOrientation = Surface.ROTATION_180;
+                } else {
+                    mOrientation = Surface.ROTATION_90;
+                }
+            } else if (Float.compare(x, 0) > 0 && Float.compare(x - y, 0) > 0) {
+                if (Float.compare(x + y, 0) > 0) {
+                    mOrientation = Surface.ROTATION_270;
+                } else {
+                    mOrientation = Surface.ROTATION_180;
+                }
+            } else {
+                mOrientation = Surface.ROTATION_0;
+            }
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {
         }
     }
 
