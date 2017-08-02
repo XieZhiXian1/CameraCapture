@@ -20,6 +20,7 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
+import android.media.ExifInterface;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaRecorder;
@@ -442,6 +443,7 @@ public class CaptureManager {
                 outputStream = new BufferedOutputStream(new FileOutputStream(file));
                 outputStream.write(bytes);
                 outputStream.flush();
+                setBitmapLocation(file.getAbsolutePath());
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
@@ -455,6 +457,63 @@ public class CaptureManager {
                 }
             }
         }
+    }
+
+    /**
+     * 设置图片的经纬度
+     *
+     * @param path 图片绝对路径
+     */
+    public static void setBitmapLocation(String path) {
+        if (Double.compare(LocationUtil.mLatitude, 0) == 0) {
+            return;
+        }
+        try {
+            // 从指定路径下读取图片，并获取其EXIF信息
+            ExifInterface exifInterface = new ExifInterface(path);
+
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_ALTITUDE, getAltitude(LocationUtil.mAltitude));
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_ALTITUDE_REF, LocationUtil.mLongitude >= 0 ? "0" : "1");
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_LONGITUDE, gpsCoordinate2DMS(LocationUtil.mLongitude));
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF, LocationUtil.mLongitude > 0 ? "E" : "W");
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_LATITUDE, gpsCoordinate2DMS(LocationUtil.mLatitude));
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_LATITUDE_REF, LocationUtil.mLatitude > 0 ? "N" : "S");
+            exifInterface.saveAttributes();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @NonNull
+    private static String getAltitude(double altitude) {
+        int a = (int) (altitude * 100);
+        String result = a + "/100";
+        Log.d(TAG, "getAltitude: " + altitude + "; result : " + result);
+        return result;
+    }
+
+    /**
+     * gps浮点型经纬度转换为度分秒格式
+     *
+     * @param coordinate 经纬度
+     * @return 度分秒经纬度
+     */
+    public static String gpsCoordinate2DMS(double coordinate) {
+        int d, m, s;
+        // 获取度数
+        d = (int) coordinate;
+        // 获取分
+        double point = coordinate - d;
+        double mPoint = point * 60;
+        m = (int) mPoint;
+        // 获取秒的小数
+        double sPoint = (mPoint - m) * 60;
+        // 保留六位小数
+        s = (int) (sPoint * 10000);
+
+        String dms = d + "/1," + m + "/1," + s + "/10000";
+        Log.d(TAG, "gpsCoordinate2DMS: " + dms);
+        return dms;
     }
 
     /**
