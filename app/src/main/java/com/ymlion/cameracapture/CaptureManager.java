@@ -212,7 +212,7 @@ public class CaptureManager {
             int orientation = getOrientation(getRotation());
             builder.set(CaptureRequest.JPEG_ORIENTATION, orientation);
             setupRequest(builder);
-//            builder.set(CaptureRequest.JPEG_QUALITY, (byte) 95);
+            builder.set(CaptureRequest.JPEG_QUALITY, (byte) 91);
             mCaptureSession.stopRepeating();
             mCaptureSession.capture(builder.build(), mCaptureCallback, null);
         } catch (CameraAccessException e) {
