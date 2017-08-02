@@ -130,7 +130,8 @@ public class CaptureManager {
 
     private SensorManager sm;
     private SensorEventListener mSensorListener;
-    private int mOrientation = 0;
+    private float mSensorX;
+    private float mSensorY;
 
     public CaptureManager(Context context, SurfaceTexture surfaceTexture) {
         this.mContext = context;
@@ -207,8 +208,7 @@ public class CaptureManager {
         try {
             CaptureRequest.Builder builder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
             builder.addTarget(mImageReader.getSurface());
-            int orientation = getOrientation(mOrientation);
-            Log.d(TAG, "captureStill: picture rotation : " + mOrientation + "; orientation : " + orientation);
+            int orientation = getOrientation(getRotation());
             builder.set(CaptureRequest.JPEG_ORIENTATION, orientation);
             setupRequest(builder);
 //            builder.set(CaptureRequest.JPEG_QUALITY, (byte) 95);
@@ -246,9 +246,9 @@ public class CaptureManager {
             mCurrentVideo = getFile(1);
             mRecorder.setOutputFile(mCurrentVideo.getAbsolutePath());
             if (mSensorOrientation == 90) {
-                mRecorder.setOrientationHint(ORIENTATIONS.get(mOrientation));
+                mRecorder.setOrientationHint(ORIENTATIONS.get(getRotation()));
             } else if (mSensorOrientation == 270) {
-                mRecorder.setOrientationHint(INVERSE_ORIENTATIONS.get(mOrientation));
+                mRecorder.setOrientationHint(INVERSE_ORIENTATIONS.get(getRotation()));
             }
             try {
                 mRecorder.prepare();
@@ -538,7 +538,6 @@ public class CaptureManager {
     /**
      * Retrieves the JPEG orientation from the specified screen rotation.
      *
-     * @param rotation The screen rotation.
      * @return The JPEG orientation (one of 0, 90, 270, and 360)
      */
     private int getOrientation(int rotation) {
@@ -547,6 +546,26 @@ public class CaptureManager {
         // For devices with orientation of 90, we simply return our mapping from ORIENTATIONS.
         // For devices with orientation of 270, we need to rotate the JPEG 180 degrees.
         return (ORIENTATIONS.get(rotation) + mSensorOrientation + 270) % 360;
+    }
+
+    private int getRotation() {
+        int rotation;
+        if (Float.compare(mSensorX, 0) <= 0 && Float.compare(mSensorX + mSensorY, 0) < 0) {
+            if (Float.compare(mSensorX, mSensorY) > 0) {
+                rotation = Surface.ROTATION_180;
+            } else {
+                rotation = Surface.ROTATION_90;
+            }
+        } else if (Float.compare(mSensorX, 0) > 0 && Float.compare(mSensorX - mSensorY, 0) > 0) {
+            if (Float.compare(mSensorX + mSensorY, 0) > 0) {
+                rotation = Surface.ROTATION_270;
+            } else {
+                rotation = Surface.ROTATION_180;
+            }
+        } else {
+            rotation = Surface.ROTATION_0;
+        }
+        return rotation;
     }
 
     private void setupRequest(CaptureRequest.Builder builder) {
@@ -660,23 +679,8 @@ public class CaptureManager {
         @Override
         public void onSensorChanged(SensorEvent event) {
 //            Log.d(TAG, "onSensorChanged: " + event.values[0] + "; " + event.values[1] + "; " + event.values[2]);
-            float x = (int) event.values[0];
-            float y = (int) event.values[1];
-            if (Float.compare(x, 0) <= 0 && Float.compare(x + y, 0) < 0) {
-                if (Float.compare(x, y) > 0) {
-                    mOrientation = Surface.ROTATION_180;
-                } else {
-                    mOrientation = Surface.ROTATION_90;
-                }
-            } else if (Float.compare(x, 0) > 0 && Float.compare(x - y, 0) > 0) {
-                if (Float.compare(x + y, 0) > 0) {
-                    mOrientation = Surface.ROTATION_270;
-                } else {
-                    mOrientation = Surface.ROTATION_180;
-                }
-            } else {
-                mOrientation = Surface.ROTATION_0;
-            }
+            mSensorX = event.values[0];
+            mSensorY = event.values[1];
         }
 
         @Override
