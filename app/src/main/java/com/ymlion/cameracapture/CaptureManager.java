@@ -237,8 +237,13 @@ public class CaptureManager {
             mRecorder = new MediaRecorder();
             mRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
             mRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-            if (CamcorderProfile.hasProfile(CamcorderProfile.QUALITY_QVGA)) {
-                mRecorder.setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_QVGA));
+            if (CamcorderProfile.hasProfile(CamcorderProfile.QUALITY_480P)) {
+                CamcorderProfile profile = CamcorderProfile.get(Integer.valueOf(mCameraId), CamcorderProfile.QUALITY_480P);
+                Log.d(TAG, "setupRecord: bit rate : " + profile.videoBitRate +
+                        "; frame rate: " + profile.videoFrameRate + "; audio bit rate : " + profile.audioBitRate);
+                profile.videoBitRate = 1024000;
+                profile.audioBitRate = 128000;
+                mRecorder.setProfile(profile);
             } else {
                 mRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
                 mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
