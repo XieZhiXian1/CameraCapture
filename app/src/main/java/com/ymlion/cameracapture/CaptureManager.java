@@ -241,8 +241,11 @@ public class CaptureManager {
                 CamcorderProfile profile = CamcorderProfile.get(Integer.valueOf(mCameraId), CamcorderProfile.QUALITY_480P);
                 Log.d(TAG, "setupRecord: bit rate : " + profile.videoBitRate +
                         "; frame rate: " + profile.videoFrameRate + "; audio bit rate : " + profile.audioBitRate);
-                profile.videoBitRate = 1024000;
-                profile.audioBitRate = 128000;
+                profile.videoBitRate = 1200000;
+                profile.audioBitRate = 64000;
+                profile.audioChannels = 1;
+//                profile.videoFrameWidth = 960;
+//                profile.videoFrameHeight = 544;
                 mRecorder.setProfile(profile);
             } else {
                 mRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
