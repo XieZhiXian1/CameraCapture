@@ -166,19 +166,20 @@ public class CaptureManager {
 
     public void open(int width, int height) {
         try {
-            if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
                 return;
             }
             setUpCameraOutputs(width, height);
-//            setupRecord();
+            //            setupRecord();
             cm.openCamera(mCameraId, new DeviceStateCallback(), mThreadHandler);
             Sensor gravitySensor = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-            sm.registerListener(mSensorListener = new CameraSensorListener(), gravitySensor, SensorManager.SENSOR_DELAY_NORMAL);
+            sm.registerListener(mSensorListener = new CameraSensorListener(), gravitySensor,
+                SensorManager.SENSOR_DELAY_NORMAL);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
 
     public void capture() {
         lockFocus();
@@ -195,7 +196,8 @@ public class CaptureManager {
     }
 
     private void preCapture() {
-        mRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER, CONTROL_AE_PRECAPTURE_TRIGGER_START);
+        mRequestBuilder.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER,
+            CONTROL_AE_PRECAPTURE_TRIGGER_START);
         mState = STATE_WAITING_CAPTURE;
         try {
             mCaptureSession.capture(mRequestBuilder.build(), mCaptureCallback, mThreadHandler);
@@ -207,7 +209,8 @@ public class CaptureManager {
     private void captureStill() {
         mState = STATE_CAPTURED;
         try {
-            CaptureRequest.Builder builder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            CaptureRequest.Builder builder =
+                mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
             builder.addTarget(mImageReader.getSurface());
             int orientation = getOrientation(getRotation());
             builder.set(CaptureRequest.JPEG_ORIENTATION, orientation);
@@ -225,8 +228,10 @@ public class CaptureManager {
         mState = STATE_RECORDING;
         setupRecord();
         try {
-            List<Surface> surfaces = Arrays.asList(mPreviewSurface, mImageReader.getSurface(), mRecorder.getSurface());
-            mCameraDevice.createCaptureSession(surfaces, new SessionStateCallback(), mThreadHandler);
+            List<Surface> surfaces =
+                Arrays.asList(mPreviewSurface, mImageReader.getSurface(), mRecorder.getSurface());
+            mCameraDevice.createCaptureSession(surfaces, new SessionStateCallback(),
+                mThreadHandler);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -238,14 +243,19 @@ public class CaptureManager {
             mRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
             mRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
             if (CamcorderProfile.hasProfile(CamcorderProfile.QUALITY_480P)) {
-                CamcorderProfile profile = CamcorderProfile.get(Integer.valueOf(mCameraId), CamcorderProfile.QUALITY_480P);
-                Log.d(TAG, "setupRecord: bit rate : " + profile.videoBitRate +
-                        "; frame rate: " + profile.videoFrameRate + "; audio bit rate : " + profile.audioBitRate);
+                CamcorderProfile profile =
+                    CamcorderProfile.get(Integer.valueOf(mCameraId), CamcorderProfile.QUALITY_480P);
+                Log.d(TAG, "setupRecord: bit rate : "
+                    + profile.videoBitRate
+                    + "; frame rate: "
+                    + profile.videoFrameRate
+                    + "; audio bit rate : "
+                    + profile.audioBitRate);
                 profile.videoBitRate = 1200000;
                 profile.audioBitRate = 64000;
                 profile.audioChannels = 1;
-//                profile.videoFrameWidth = 960;
-//                profile.videoFrameHeight = 544;
+                //                profile.videoFrameWidth = 960;
+                //                profile.videoFrameHeight = 544;
                 mRecorder.setProfile(profile);
             } else {
                 mRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
@@ -278,7 +288,8 @@ public class CaptureManager {
         }
         try {
             List<Surface> surfaces = Arrays.asList(mPreviewSurface, mImageReader.getSurface());
-            mCameraDevice.createCaptureSession(surfaces, new SessionStateCallback(), mThreadHandler);
+            mCameraDevice.createCaptureSession(surfaces, new SessionStateCallback(),
+                mThreadHandler);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -306,11 +317,9 @@ public class CaptureManager {
         sm.unregisterListener(mSensorListener);
     }
 
-
     private class DeviceStateCallback extends CameraDevice.StateCallback {
 
-        @Override
-        public void onOpened(@NonNull CameraDevice camera) {
+        @Override public void onOpened(@NonNull CameraDevice camera) {
             try {
                 mCameraDevice = camera;
                 Log.d(TAG, "DeviceStateCallback onOpened: " + camera.getId());
@@ -333,26 +342,24 @@ public class CaptureManager {
             }
         }
 
-        @Override
-        public void onDisconnected(@NonNull CameraDevice camera) {
+        @Override public void onDisconnected(@NonNull CameraDevice camera) {
             Log.d(TAG, "DeviceStateCallback onDisconnected: " + camera.getId());
         }
 
-        @Override
-        public void onError(@NonNull CameraDevice camera, int error) {
+        @Override public void onError(@NonNull CameraDevice camera, int error) {
             Log.e(TAG, "DeviceStateCallback onError: " + error);
         }
     }
 
     private class SessionStateCallback extends CameraCaptureSession.StateCallback {
 
-        @Override
-        public void onConfigured(@NonNull CameraCaptureSession session) {
+        @Override public void onConfigured(@NonNull CameraCaptureSession session) {
             Log.d(TAG, "SessionStateCallback onConfigured: ");
             mCaptureSession = session;
             try {
                 if (mState == STATE_RECORDING) {
-                    CaptureRequest.Builder builder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+                    CaptureRequest.Builder builder =
+                        mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
                     builder.addTarget(mPreviewSurface);
                     builder.addTarget(mRecorder.getSurface());
                     mCaptureSession.setRepeatingRequest(builder.build(), mCaptureCallback, null);
@@ -360,28 +367,27 @@ public class CaptureManager {
                 } else {
                     setupRequest(mRequestBuilder);
                     mCaptureCallback = new CaptureCallback();
-                    session.setRepeatingRequest(mRequestBuilder.build(),
-                            mCaptureCallback, mThreadHandler);
+                    session.setRepeatingRequest(mRequestBuilder.build(), mCaptureCallback,
+                        mThreadHandler);
                 }
             } catch (CameraAccessException e) {
                 e.printStackTrace();
             }
         }
 
-        @Override
-        public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+        @Override public void onConfigureFailed(@NonNull CameraCaptureSession session) {
             Log.d(TAG, "SessionStateCallback onConfigureFailed");
         }
     }
 
     private class CaptureCallback extends CameraCaptureSession.CaptureCallback {
-        @Override
-        public void onCaptureProgressed(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull CaptureResult partialResult) {
+        @Override public void onCaptureProgressed(@NonNull CameraCaptureSession session,
+            @NonNull CaptureRequest request, @NonNull CaptureResult partialResult) {
             process(partialResult);
         }
 
-        @Override
-        public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+        @Override public void onCaptureCompleted(@NonNull CameraCaptureSession session,
+            @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
             process(result);
         }
 
@@ -392,8 +398,8 @@ public class CaptureManager {
                     if (af == null) {
                         mState = STATE_CAPTURED;
                         captureStill();
-                    } else if (af == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED ||
-                            af == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED) {
+                    } else if (af == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED
+                        || af == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED) {
                         Integer ae = result.get(CaptureResult.CONTROL_AE_STATE);
                         if (ae == null || ae == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
                             mState = STATE_CAPTURED;
@@ -405,9 +411,9 @@ public class CaptureManager {
                     break;
                 case STATE_WAITING_CAPTURE: {
                     Integer aeState = result.get(CaptureResult.CONTROL_AE_STATE);
-                    if (aeState == null ||
-                            aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE ||
-                            aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED) {
+                    if (aeState == null
+                        || aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE
+                        || aeState == CaptureRequest.CONTROL_AE_STATE_FLASH_REQUIRED) {
                         mState = STATE_CAPTURE;
                     }
                     break;
@@ -424,7 +430,7 @@ public class CaptureManager {
                     try {
                         mState = STATE_PREVIEW;
                         mCaptureSession.setRepeatingRequest(mRequestBuilder.build(),
-                                mCaptureCallback, mThreadHandler);
+                            mCaptureCallback, mThreadHandler);
                     } catch (CameraAccessException e) {
                         e.printStackTrace();
                     }
@@ -435,11 +441,9 @@ public class CaptureManager {
         }
     }
 
-
     private class OnImageAvailable implements ImageReader.OnImageAvailableListener {
 
-        @Override
-        public void onImageAvailable(ImageReader reader) {
+        @Override public void onImageAvailable(ImageReader reader) {
             Image image = reader.acquireNextImage();
             ByteBuffer buffer = image.getPlanes()[0].getBuffer();
             byte[] bytes = new byte[buffer.remaining()];
@@ -480,20 +484,25 @@ public class CaptureManager {
             // 从指定路径下读取图片，并获取其EXIF信息
             ExifInterface exifInterface = new ExifInterface(path);
 
-            exifInterface.setAttribute(ExifInterface.TAG_GPS_ALTITUDE, getAltitude(LocationUtil.mAltitude));
-            exifInterface.setAttribute(ExifInterface.TAG_GPS_ALTITUDE_REF, LocationUtil.mLongitude >= 0 ? "0" : "1");
-            exifInterface.setAttribute(ExifInterface.TAG_GPS_LONGITUDE, gpsCoordinate2DMS(LocationUtil.mLongitude));
-            exifInterface.setAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF, LocationUtil.mLongitude > 0 ? "E" : "W");
-            exifInterface.setAttribute(ExifInterface.TAG_GPS_LATITUDE, gpsCoordinate2DMS(LocationUtil.mLatitude));
-            exifInterface.setAttribute(ExifInterface.TAG_GPS_LATITUDE_REF, LocationUtil.mLatitude > 0 ? "N" : "S");
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_ALTITUDE,
+                getAltitude(LocationUtil.mAltitude));
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_ALTITUDE_REF,
+                LocationUtil.mLongitude >= 0 ? "0" : "1");
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_LONGITUDE,
+                gpsCoordinate2DMS(LocationUtil.mLongitude));
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF,
+                LocationUtil.mLongitude > 0 ? "E" : "W");
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_LATITUDE,
+                gpsCoordinate2DMS(LocationUtil.mLatitude));
+            exifInterface.setAttribute(ExifInterface.TAG_GPS_LATITUDE_REF,
+                LocationUtil.mLatitude > 0 ? "N" : "S");
             exifInterface.saveAttributes();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    @NonNull
-    private static String getAltitude(double altitude) {
+    @NonNull private static String getAltitude(double altitude) {
         int a = (int) (altitude * 100);
         String result = a + "/100";
         Log.d(TAG, "getAltitude: " + altitude + "; result : " + result);
@@ -529,30 +538,27 @@ public class CaptureManager {
      *
      * @param type 0: image; 1: video
      */
-    @NonNull
-    private File getFile(int type) {
-        String fileName = DateFormat.format("yyyyMMddHHmmss", System.currentTimeMillis()).toString();
+    @NonNull private File getFile(int type) {
+        String fileName =
+            DateFormat.format("yyyyMMddHHmmss", System.currentTimeMillis()).toString();
         String dirType = type == 0 ? Environment.DIRECTORY_PICTURES : Environment.DIRECTORY_MOVIES;
         String fileType = type == 0 ? ".jpg" : ".mp4";
         return new File(Environment.getExternalStoragePublicDirectory(dirType).getAbsolutePath()
-                + "/"
-                + fileName
-                + fileType);
+            + "/"
+            + fileName
+            + fileType);
     }
-
 
     /**
      * Compares two {@code Size}s based on their areas.
      */
     static class CompareSizesByArea implements Comparator<Size> {
 
-        @Override
-        public int compare(Size lhs, Size rhs) {
+        @Override public int compare(Size lhs, Size rhs) {
             // We cast here to ensure the multiplications won't overflow
-            return Long.signum((long) lhs.getWidth() * lhs.getHeight() -
-                    (long) rhs.getWidth() * rhs.getHeight());
+            return Long.signum(
+                (long) lhs.getWidth() * lhs.getHeight() - (long) rhs.getWidth() * rhs.getHeight());
         }
-
     }
 
     /**
@@ -562,15 +568,15 @@ public class CaptureManager {
      * doesn't exist, choose the largest one that is at most as large as the respective max size,
      * and whose aspect ratio matches with the specified value.
      *
-     * @param choices           The list of sizes that the camera supports for the intended output
-     *                          class
-     * @param textureViewWidth  The width of the texture view relative to sensor coordinate
+     * @param choices The list of sizes that the camera supports for the intended output
+     * class
+     * @param textureViewWidth The width of the texture view relative to sensor coordinate
      * @param textureViewHeight The height of the texture view relative to sensor coordinate
-     * @param aspectRatio       The aspect ratio
+     * @param aspectRatio The aspect ratio
      * @return The optimal {@code Size}, or an arbitrary one if none were big enough
      */
     private static Size chooseOptimalSize(Size[] choices, int textureViewWidth,
-                                          int textureViewHeight, Size aspectRatio) {
+        int textureViewHeight, Size aspectRatio) {
 
         // Collect the supported resolutions that are at least as big as the preview Surface
         List<Size> bigEnough = new ArrayList<>();
@@ -580,8 +586,8 @@ public class CaptureManager {
         int h = aspectRatio.getHeight();
         for (Size option : choices) {
             if (option.getHeight() == option.getWidth() * h / w) {
-                if (option.getWidth() >= textureViewWidth &&
-                        option.getHeight() >= textureViewHeight) {
+                if (option.getWidth() >= textureViewWidth
+                    && option.getHeight() >= textureViewHeight) {
                     bigEnough.add(option);
                 } else {
                     notBigEnough.add(option);
@@ -600,7 +606,6 @@ public class CaptureManager {
             return choices[0];
         }
     }
-
 
     /**
      * Retrieves the JPEG orientation from the specified screen rotation.
@@ -639,24 +644,24 @@ public class CaptureManager {
         builder.set(CaptureRequest.CONTROL_MODE, CONTROL_MODE_AUTO);
         builder.set(CaptureRequest.CONTROL_AF_MODE, CONTROL_AF_MODE_CONTINUOUS_PICTURE);
         if (mFlashSupported && mState == STATE_CAPTURE) {
-            builder.set(CaptureRequest.CONTROL_CAPTURE_INTENT, CONTROL_CAPTURE_INTENT_STILL_CAPTURE);
+            builder.set(CaptureRequest.CONTROL_CAPTURE_INTENT,
+                CONTROL_CAPTURE_INTENT_STILL_CAPTURE);
             builder.set(CaptureRequest.CONTROL_AE_MODE, CONTROL_AE_MODE_ON_ALWAYS_FLASH);
-//            builder.set(CaptureRequest.FLASH_MODE, FLASH_MODE_TORCH);
+            //            builder.set(CaptureRequest.FLASH_MODE, FLASH_MODE_TORCH);
         }
-//        builder.set(CaptureRequest.CONTROL_AF_MODE, CONTROL_AF_MODE_AUTO);
+        //        builder.set(CaptureRequest.CONTROL_AF_MODE, CONTROL_AF_MODE_AUTO);
     }
 
     /**
      * Sets up member variables related to camera.
      *
-     * @param width  The width of available size for camera preview
+     * @param width The width of available size for camera preview
      * @param height The height of available size for camera preview
      */
     private void setUpCameraOutputs(int width, int height) {
         try {
             for (String cameraId : cm.getCameraIdList()) {
-                CameraCharacteristics characteristics
-                        = cm.getCameraCharacteristics(cameraId);
+                CameraCharacteristics characteristics = cm.getCameraCharacteristics(cameraId);
 
                 // We don't use a front facing camera in this sample.
                 Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
@@ -664,29 +669,31 @@ public class CaptureManager {
                     continue;
                 }
 
-                StreamConfigurationMap map = characteristics.get(
-                        CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+                StreamConfigurationMap map =
+                    characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
                 if (map == null) {
                     continue;
                 }
 
                 // For still image captures, we use the largest available size.
-                Size largest = Collections.max(
-                        Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
-                        new CompareSizesByArea());
+                Size largest = Collections.max(Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
+                    new CompareSizesByArea());
                 mImageReader = ImageReader.newInstance(largest.getWidth(), largest.getHeight(),
-                        ImageFormat.JPEG, /*maxImages*/2);
-                mImageReader.setOnImageAvailableListener(
-                        new OnImageAvailable(), mThreadHandler);
+                    ImageFormat.JPEG, /*maxImages*/2);
+                mImageReader.setOnImageAvailableListener(new OnImageAvailable(), mThreadHandler);
 
                 Log.d(TAG, "setUpCameraOutputs: image reader size : " + largest);
 
                 // Find out if we need to swap dimension to get the preview size relative to sensor
                 // coordinate.
-                int displayRotation = ((Activity) (mContext)).getWindowManager().getDefaultDisplay().getRotation();
+                int displayRotation =
+                    ((Activity) (mContext)).getWindowManager().getDefaultDisplay().getRotation();
                 //noinspection ConstantConditions
                 mSensorOrientation = characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
-                Log.d(TAG, "device orientation : " + mSensorOrientation + "; display rotation : "  + displayRotation);
+                Log.d(TAG, "device orientation : "
+                    + mSensorOrientation
+                    + "; display rotation : "
+                    + displayRotation);
                 boolean swappedDimensions = false;
                 switch (displayRotation) {
                     case Surface.ROTATION_0:
@@ -716,8 +723,9 @@ public class CaptureManager {
                 // Danger, W.R.! Attempting to use too large a preview size could  exceed the camera
                 // bus' bandwidth limitation, resulting in gorgeous previews but the storage of
                 // garbage capture data.
-                mPreviewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
-                        rotatedPreviewWidth, rotatedPreviewHeight, largest);
+                mPreviewSize =
+                    chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class), rotatedPreviewWidth,
+                        rotatedPreviewHeight, largest);
 
                 // We fit the aspect ratio of TextureView to the size of preview we picked.
                 /*int orientation = mContext.getResources().getConfiguration().orientation;
@@ -743,16 +751,13 @@ public class CaptureManager {
 
     private class CameraSensorListener implements SensorEventListener {
 
-        @Override
-        public void onSensorChanged(SensorEvent event) {
-//            Log.d(TAG, "onSensorChanged: " + event.values[0] + "; " + event.values[1] + "; " + event.values[2]);
+        @Override public void onSensorChanged(SensorEvent event) {
+            //            Log.d(TAG, "onSensorChanged: " + event.values[0] + "; " + event.values[1] + "; " + event.values[2]);
             mSensorX = event.values[0];
             mSensorY = event.values[1];
         }
 
-        @Override
-        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {
         }
     }
-
 }

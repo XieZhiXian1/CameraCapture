@@ -63,10 +63,10 @@ public class LocationUtil {
         criteria.setPowerRequirement(Criteria.POWER_LOW);    //低功耗
 
         //通过最后一次的地理位置来获得Location对象
-        if (ActivityCompat.checkSelfPermission(context,
-                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(context,
-                Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+            && ActivityCompat.checkSelfPermission(context,
+            Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
         Location location = locationManager.getLastKnownLocation(provider);
@@ -84,8 +84,7 @@ public class LocationUtil {
          * 第二个参数表示更新的周期，单位为毫秒；第三个参数的含义表示最小距离间隔，单位是米
 		 * 设定每30秒进行一次自动定位
 		 */
-        locationManager.requestLocationUpdates(provider, 0, 0,
-                locationListener);
+        locationManager.requestLocationUpdates(provider, 0, 0, locationListener);
         locationManager.removeUpdates(locationListener);
     }
 
@@ -172,9 +171,9 @@ public class LocationUtil {
 		 * 密钥可以随便写一个key=abc
 		 * output=csv,也可以是xml或json，不过使用csv返回的数据最简洁方便解析
 		 */
-        String url = String.format(
-                "http://ditu.google.cn/maps/geo?output=csv&key=abcdef&q=%s,%s",
-                latitude, longitude);
+        String url =
+            String.format("http://ditu.google.cn/maps/geo?output=csv&key=abcdef&q=%s,%s", latitude,
+                longitude);
         URL myURL = null;
         URLConnection httpsConn = null;
         try {
@@ -190,8 +189,7 @@ public class LocationUtil {
             httpsConn = (URLConnection) myURL.openConnection();
 
             if (httpsConn != null) {
-                InputStreamReader insr = new InputStreamReader(
-                        httpsConn.getInputStream(), "UTF-8");
+                InputStreamReader insr = new InputStreamReader(httpsConn.getInputStream(), "UTF-8");
                 BufferedReader br = new BufferedReader(insr);
                 String data = null;
                 if ((data = br.readLine()) != null) {
@@ -211,5 +209,4 @@ public class LocationUtil {
         }
         return addr;
     }
-
 }
